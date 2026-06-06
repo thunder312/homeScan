@@ -2,7 +2,7 @@ const { exec } = require('child_process');
 const os = require('os');
 const dns = require('dns').promises;
 const { lookupVendor }           = require('./macLookup');
-const { getHostMap }             = require('./fritzbox');
+const { getHostMap, getMeshTopology } = require('./fritzbox');
 const { getSsdpNames, grabHttpTitle, scanPorts, grabSshBanner } = require('./discover');
 
 // ── OUI-Präfixe reiner WLAN-Chip-Hersteller ──────────────────────────────────
@@ -200,10 +200,27 @@ async function scanNetwork({ onProgress, onDevice, onVendor, onSources, onNameUp
   }
 
   const allMacs = rawDevices.map(d => d.mac);
-  const hostMap = await getHostMap(gatewayIp, allMacs);
+  const [hostMap, meshData] = await Promise.all([
+    getHostMap(gatewayIp, allMacs),
+    getMeshTopology(gatewayIp),
+  ]);
+
+  // MAC → IP und Name → IP für Mesh-Gateway-Auflösung
+  const macToIp  = {};
+  const nameToIp = {};
+  rawDevices.forEach(d => { macToIp[d.mac] = d.ip; });
+  Object.entries(hostMap).forEach(([mac, entry]) => {
+    if (entry.name && macToIp[mac]) nameToIp[entry.name.toLowerCase()] = macToIp[mac];
+  });
 
   const hasFritzbox = Object.keys(hostMap).length > 0;
-  onSources({ gateway: gatewayIp, fritzbox: hasFritzbox, rtt: true, oui: true });
+  onSources({
+    gateway:       gatewayIp,
+    fritzbox:      hasFritzbox,
+    meshNodeNames: meshData.meshNodeNames,
+    rtt:           true,
+    oui:           true,
+  });
 
   // Phase 3: VPN-Erkennung + Namen + Interface parallel auflösen
   const vpnOf  = detectVpn(rawDevices);
@@ -243,7 +260,10 @@ async function scanNetwork({ onProgress, onDevice, onVendor, onSources, onNameUp
       if (!customName && !hostname) nameless.push(d);
 
       const { iface, ifaceSrc } = resolveIface(d.mac, d.ip, hostMap, rttMap);
-      onDevice({ ...d, hostname, customName, customNameSrc, iface, ifaceSrc });
+      // Mesh-Gateway: über welchen Repeater (EG/OG) ist das Gerät verbunden?
+      const gwName = meshData.deviceToGatewayName[d.mac];
+      const connectedVia = gwName ? (nameToIp[gwName.toLowerCase()] || null) : null;
+      onDevice({ ...d, hostname, customName, customNameSrc, iface, ifaceSrc, connectedVia });
     })
   );
 

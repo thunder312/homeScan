@@ -39,6 +39,26 @@
         <button id="scanBtn" class="btn-scan">Netzwerk scannen</button>
         <span id="sourcesBadge" class="sources-badge" hidden></span>
         <span id="scanMeta" class="scan-meta"></span>
+        <div class="view-tabs">
+          <button class="view-tab view-tab--active" id="tabList" title="Listenansicht">
+            <svg viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+              <line x1="5" y1="2" x2="15" y2="2"/><line x1="5" y1="7" x2="15" y2="7"/><line x1="5" y1="12" x2="15" y2="12"/>
+              <circle cx="2" cy="2" r="1" fill="currentColor" stroke="none"/>
+              <circle cx="2" cy="7" r="1" fill="currentColor" stroke="none"/>
+              <circle cx="2" cy="12" r="1" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+          <button class="view-tab" id="tabMap" title="Netzwerkkarte">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+              <circle cx="8" cy="8" r="2.5"/>
+              <circle cx="2" cy="3" r="1.5"/><line x1="3.1" y1="4.1" x2="5.9" y2="6.4"/>
+              <circle cx="14" cy="3" r="1.5"/><line x1="12.9" y1="4.1" x2="10.1" y2="6.4"/>
+              <circle cx="2" cy="13" r="1.5"/><line x1="3.1" y1="11.9" x2="5.9" y2="9.6"/>
+              <circle cx="14" cy="13" r="1.5"/><line x1="12.9" y1="11.9" x2="10.1" y2="9.6"/>
+              <circle cx="8" cy="1" r="1.5"/><line x1="8" y1="2.5" x2="8" y2="5.5"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div id="progressWrap" class="progress-wrap" hidden>
@@ -46,6 +66,27 @@
           <div id="progressFill" class="progress-fill"></div>
         </div>
         <span id="progressLabel" class="progress-label">Starte...</span>
+      </div>
+
+      <!-- Karten-Ansicht -->
+      <div id="mapView" class="map-container" hidden>
+        <svg id="networkMap"></svg>
+        <div class="map-zoom-btns">
+          <button data-zoom="in"  class="map-zoom-btn">+</button>
+          <button data-zoom="out" class="map-zoom-btn">&minus;</button>
+        </div>
+        <!-- Detail-Panel -->
+        <div id="mapDetail" class="map-detail" hidden>
+          <button id="mapDetailClose" class="map-detail-close">&times;</button>
+          <div id="mapDetailContent" class="map-detail-content"></div>
+        </div>
+        <div class="map-legend">
+          <span class="legend-item legend-item--router">Router</span>
+          <span class="legend-item legend-item--lan">LAN</span>
+          <span class="legend-item legend-item--wifi">WLAN</span>
+          <span class="legend-item legend-item--vpn">VPN</span>
+          <span class="legend-item legend-item--unknown">Unbekannt</span>
+        </div>
       </div>
 
       <div class="table-wrap">

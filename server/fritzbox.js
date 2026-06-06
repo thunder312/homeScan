@@ -128,8 +128,8 @@ async function authPost(ip, path, soapAction, payload, creds) {
   return httpRequest(opts2, payload);
 }
 
-async function authGet(ip, urlPath, creds) {
-  const opts = { hostname: ip, port: 49000, path: urlPath, method: 'GET', headers: {} };
+async function authGet(ip, urlPath, creds, timeoutMs = 3000) {
+  const opts = { hostname: ip, port: 49000, path: urlPath, method: 'GET', headers: {}, timeout: timeoutMs };
   const r1 = await httpRequest(opts);
   if (r1.status !== 401 || !creds.password) return r1;
   const challenge = parseDigestChallenge(r1.headers['www-authenticate'] || '');
@@ -228,4 +228,57 @@ async function getFriendlyNames(routerIp) {
   return names;
 }
 
-module.exports = { getHostMap, getFriendlyNames };
+// Mesh-Topologie: welches Gerät hängt an welchem Mesh-Knoten (EG/OG/Router)
+// Gibt zurück: { deviceToGatewayName: {mac→name}, meshNodeNames: ['OG','EG',...] }
+async function getMeshTopology(routerIp) {
+  const empty = { deviceToGatewayName: {}, meshNodeNames: [] };
+  const creds = loadCreds();
+  if (!creds.password) return empty;
+
+  try {
+    const soap = buildSoap('X_AVM-DE_GetMeshListPath', '');
+    const r = await authPost(routerIp, '/upnp/control/hosts',
+      'urn:dslforum-org:service:Hosts:1#X_AVM-DE_GetMeshListPath', soap, creds);
+    if (r.status !== 200) return empty;
+
+    const pm = r.body.match(/<NewX_AVM-DE_MeshListPath>([^<]+)/);
+    if (!pm) return empty;
+
+    // Mesh-JSON kann gross sein (>200KB) → längerer Timeout
+    const lr = await authGet(routerIp, pm[1], creds, 15000);
+    if (lr.status !== 200) return empty;
+
+    const mesh = JSON.parse(lr.body);
+    const norm = (m) => (m || '').toLowerCase().replace(/-/g, ':');
+
+    // UID → Node Lookup
+    const byUid = {};
+    (mesh.nodes || []).forEach(n => { byUid[n.uid] = n; });
+
+    // Slave-Knoten identifizieren (EG, OG etc.)
+    const slaves = (mesh.nodes || []).filter(n => n.mesh_role === 'slave');
+    const meshNodeNames = slaves.map(n => n.device_friendly_name || n.device_name || '');
+
+    // Für jeden Slave: welche Geräte sind verbunden?
+    const deviceToGatewayName = {};
+    for (const slave of slaves) {
+      const gwName = slave.device_friendly_name || slave.device_name;
+      for (const iface of slave.node_interfaces || []) {
+        for (const link of iface.node_links || []) {
+          if (link.state !== 'CONNECTED') continue;
+          const otherUid = link.node_1_uid === slave.uid ? link.node_2_uid : link.node_1_uid;
+          const other = byUid[otherUid];
+          if (!other || other.mesh_role === 'slave' || other.mesh_role === 'master') continue;
+          const devMac = norm(other.device_mac_address);
+          if (devMac) deviceToGatewayName[devMac] = gwName;
+        }
+      }
+    }
+    return { deviceToGatewayName, meshNodeNames };
+  } catch (err) {
+    console.error('[getMeshTopology]', err.message);
+    return empty;
+  }
+}
+
+module.exports = { getHostMap, getFriendlyNames, getMeshTopology };

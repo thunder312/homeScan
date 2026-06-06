@@ -1,3 +1,5 @@
+import { initMap, updateMap, resizeMap } from './map.js';
+
 const API = '/api';
 
 // ── Interface-Icons (SVG) ──────────────────────────────────────────────────────
@@ -205,7 +207,11 @@ let renderQueued = false;
 function scheduleRender() {
   if (!renderQueued) {
     renderQueued = true;
-    requestAnimationFrame(() => { renderQueued = false; render(); });
+    requestAnimationFrame(() => {
+      renderQueued = false;
+      render();
+      if (currentView === 'map' && mapInited) updateMap(allDevices);
+    });
   }
 }
 
@@ -408,6 +414,66 @@ document.querySelectorAll('th[data-col]').forEach(th => {
   th.addEventListener('click', () => setSort(th.dataset.col));
 });
 
+// ── Karte ──────────────────────────────────────────────────────────────────────
+
+const tabList      = document.getElementById('tabList');
+const tabMap       = document.getElementById('tabMap');
+const mapView      = document.getElementById('mapView');
+const tableWrap    = document.querySelector('.table-wrap');
+const networkMapEl = document.getElementById('networkMap');
+const mapDetail    = document.getElementById('mapDetail');
+const mapDetailClose    = document.getElementById('mapDetailClose');
+const mapDetailContent  = document.getElementById('mapDetailContent');
+let   mapInited    = false;
+let   currentView  = 'list';
+
+function switchView(view) {
+  currentView = view;
+  const showMap = view === 'map';
+  mapView.hidden   = !showMap;
+  tableWrap.hidden =  showMap;
+  tabList.classList.toggle('view-tab--active', !showMap);
+  tabMap.classList.toggle('view-tab--active',   showMap);
+
+  if (showMap) {
+    if (!mapInited) {
+      initMap(networkMapEl, showMapDetail);
+      mapInited = true;
+    }
+    updateMap(allDevices);
+    resizeMap(networkMapEl);
+  }
+}
+
+function showMapDetail(device) {
+  if (!device) { mapDetail.hidden = true; return; }
+  const iface = device.iface === 'ethernet' ? 'LAN (Kabel)'
+              : device.iface === 'wifi'     ? 'WLAN'
+              : device.iface === 'vpn'      ? 'VPN-Tunnel'
+              : 'Unbekannt';
+  const rows = [
+    ['Name',       esc(device.customName || device.aliasName || device.hostname || '—')],
+    ['IP',         `<code>${esc(device.ip)}</code>`],
+    ['MAC',        `<code>${esc(device.mac)}</code>`],
+    ['Verbindung', iface],
+    ['Hersteller', esc(device.vendor || '—')],
+  ];
+  if (device.vpnOf)   rows.push(['VPN von', esc(device.vpnOf)]);
+  if (device.aliasOf) rows.push(['Alias von', esc(device.aliasOf)]);
+  if (device.ports?.length) {
+    rows.push(['Ports', device.ports.map(p => `<span class="port-badge">${esc(p.service)}</span>`).join(' ')]);
+  }
+  mapDetailContent.innerHTML = rows
+    .map(([k, v]) => `<div class="detail-row"><span class="detail-key">${k}</span><span class="detail-val">${v}</span></div>`)
+    .join('');
+  mapDetail.hidden = false;
+}
+
+tabList.addEventListener('click', () => switchView('list'));
+tabMap.addEventListener('click',  () => switchView('map'));
+mapDetailClose.addEventListener('click', () => { mapDetail.hidden = true; });
+window.addEventListener('resize', () => { if (currentView === 'map') resizeMap(networkMapEl); });
+
 // ── Vendor-Spalte ein-/ausklappen ──────────────────────────────────────────────
 
 const deviceTable       = document.getElementById('deviceTable');
@@ -514,4 +580,7 @@ cfgClear.addEventListener('click', async () => {
 
 render();
 updateSortHeaders();
-initFromCache();
+initFromCache().then(() => {
+  // Hash-Routing: #map öffnet direkt die Karte
+  if (window.location.hash === '#map') switchView('map');
+});
