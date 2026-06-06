@@ -1,0 +1,18 @@
+# Include your project-specific ignores in this file
+# Read about how to use .gitignore: https://help.github.com/articles/ignoring-files
+# Useful .gitignore templates: https://github.com/github/gitignore
+node_modules
+dist
+.cache
+# Zugangsdaten und lokaler Cache
+server/.credentials
+server/config.json
+server/cache.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE temp files
+*.tmp.*
+.idea/

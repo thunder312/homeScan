@@ -1,0 +1,29 @@
+{
+  "name": " ",
+  "version": "0.0.1",
+  "description": "",
+  "private": true,
+  "keywords": [
+    ""
+  ],
+  "license": "",
+  "author": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "webpack serve --config webpack.config.dev.js",
+    "start:server": "node server/index.js",
+    "dev": "concurrently -n backend,frontend -c blue,green \"node server/index.js\" \"webpack serve --config webpack.config.dev.js\"",
+    "build": "webpack --config webpack.config.prod.js"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3",
+    "copy-webpack-plugin": "^11.0.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "html-webpack-plugin": "^5.6.0",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.0.4",
+    "webpack-merge": "^5.10.0"
+  }
+}
