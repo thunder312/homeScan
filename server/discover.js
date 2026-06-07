@@ -207,16 +207,20 @@ function grabSshBanner(ip) {
 // ── Web-Interface-Erkennung ───────────────────────────────────────────────────
 // HEAD-Request: prüft ob HTTP/HTTPS auf einem Port antwortet
 
-function httpResponds(ip, port, secure, timeoutMs = 1500) {
+function httpResponds(ip, port, secure, timeoutMs = 2000) {
   return new Promise((resolve) => {
     const mod = secure ? https : http;
     const req = mod.request({
       hostname: ip, port,
-      path: '/', method: 'HEAD', timeout: timeoutMs,
+      path: '/', method: 'GET',
       rejectUnauthorized: false,
-    }, (res) => { res.resume(); resolve(true); });
-    req.on('error',   () => resolve(false));
-    req.on('timeout', () => { req.destroy(); resolve(false); });
+    }, (res) => {
+      res.resume();    // Body verwerfen, Verbindung sauber schließen
+      resolve(true);   // Antwort erhalten → Port ist offen
+    });
+    // req.setTimeout deckt den Post-Connect-Timeout ab (timeout-Option nur Pre-Connect)
+    req.setTimeout(timeoutMs, () => { req.destroy(); resolve(false); });
+    req.on('error', () => resolve(false));
     req.end();
   });
 }
