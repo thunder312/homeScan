@@ -338,20 +338,33 @@ body {
 /* ── Settings-Button ────────────────────────────────── */
 
 .settings-btn {
-  background: none;
-  border: 1px solid var(--border);
+  background: rgba(88,166,255,0.06);
+  border: 1px solid rgba(88,166,255,0.2);
   border-radius: 6px;
   color: var(--muted);
   cursor: pointer;
-  padding: 5px 7px;
+  padding: 5px 12px;
   display: flex;
   align-items: center;
-  transition: color 0.15s, border-color 0.15s;
+  gap: 7px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-.settings-btn:hover { color: var(--text); border-color: var(--accent); }
+.settings-btn:hover {
+  background: rgba(88,166,255,0.13);
+  border-color: var(--accent);
+  color: var(--accent);
+}
 
-.settings-btn svg { width: 16px; height: 16px; }
+.settings-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+.settings-btn-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
 
 /* ── Modal ──────────────────────────────────────────── */
 
