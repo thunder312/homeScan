@@ -230,18 +230,28 @@ export function updateMap(devices) {
   enter.append('circle').attr('class', 'glow').attr('fill', 'none').attr('stroke-width', 6).attr('stroke-opacity', 0);
   enter.append('circle').attr('class', 'body').attr('stroke-width', 2);
   enter.append('use').attr('width', 16).attr('height', 16).attr('x', -8).attr('y', -8);
-  enter.append('text')
+  enter.append('a').attr('class', 'label-link')
+    .append('text')
     .attr('text-anchor', 'middle')
     .attr('font-family', '-apple-system, Segoe UI, sans-serif')
-    .attr('font-size', 11).attr('fill', C.text)
-    .style('pointer-events', 'none');
+    .attr('font-size', 11);
 
   const all = enter.merge(nodeSel);
 
   all.select('circle.glow').attr('r', d => d.r + 5).attr('stroke', d => d.color);
   all.select('circle.body').attr('r', d => d.r).attr('fill', d => d.color + '1a').attr('stroke', d => d.color);
   all.select('use').attr('href', d => `#ico-${d.type}`).attr('color', d => d.color);
-  all.select('text').attr('dy', d => d.r + 15).text(d => d.label);
+
+  // Label-Anker: href nur setzen wenn webUrl vorhanden
+  all.select('a.label-link')
+    .attr('href', d => d.data?.webUrl || null)
+    .attr('target', d => d.data?.webUrl ? '_blank' : null)
+    .attr('rel', d => d.data?.webUrl ? 'noopener noreferrer' : null)
+    .style('pointer-events', d => d.data?.webUrl ? 'auto' : 'none');
+
+  all.select('a.label-link text')
+    .attr('dy', d => d.r + 15)
+    .text(d => d.data?.webUrl ? `${d.label} ↗` : d.label);
 
   // Positionen setzen – neue Knoten direkt, bestehende mit sanftem Übergang
   enter.attr('transform', d => `translate(${d.x},${d.y})`);
@@ -320,7 +330,9 @@ function applyHighlight() {
   nodesG.selectAll('g.mnode circle.body')
     .attr('stroke-width', d => d.id === selectedId ? 3 : 2);
   nodesG.selectAll('g.mnode text')
-    .attr('fill', d => d.id === selectedId ? C.router : C.text)
+    .attr('fill', d => d.id === selectedId ? C.router
+                     : d.data?.webUrl     ? C.wifi    // Blau = klickbarer Link
+                     : C.text)
     .attr('font-weight', d => d.id === selectedId ? 600 : 400);
 }
 

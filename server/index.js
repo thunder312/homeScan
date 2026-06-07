@@ -107,6 +107,10 @@ app.get('/api/scan', async (req, res) => {
         }
         send('alias', update);
       },
+      onWebUrl: (update) => {
+        if (byIp[update.ip]) byIp[update.ip].webUrl = update.webUrl;
+        send('webUrl', update);
+      },
     });
 
     const scannedAt = saveCache(collected);

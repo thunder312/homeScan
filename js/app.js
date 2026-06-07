@@ -198,9 +198,14 @@ function hostnameCell(d) {
       : '<span class="muted">&mdash;</span>';
   }
 
+  const nameContent = `${esc(primary)}${badge}`;
+  const nameEl = d.webUrl
+    ? `<a class="dev-weblink" href="${esc(d.webUrl)}" target="_blank" rel="noopener noreferrer" title="${esc(d.webUrl)}">${nameContent}<span class="weblink-arrow">↗</span></a>`
+    : nameContent;
+
   return secondary
-    ? `<span class="dev-name">${esc(primary)}${badge}</span><span class="dev-fqdn">${esc(secondary)}</span>`
-    : `<span class="dev-name">${esc(primary)}${badge}</span>`;
+    ? `<span class="dev-name">${nameEl}</span><span class="dev-fqdn">${esc(secondary)}</span>`
+    : `<span class="dev-name">${nameEl}</span>`;
 }
 
 let renderQueued = false;
@@ -354,6 +359,15 @@ function startScan() {
     }
   });
 
+  es.addEventListener('webUrl', (e) => {
+    const { ip, webUrl } = JSON.parse(e.data);
+    const idx = deviceMap[ip];
+    if (idx !== undefined) {
+      allDevices[idx] = { ...allDevices[idx], webUrl };
+      scheduleRender();
+    }
+  });
+
   es.addEventListener('nameUpdate', (e) => {
     const { ip, customName, customNameSrc } = JSON.parse(e.data);
     const idx = deviceMap[ip];
@@ -458,6 +472,9 @@ function showMapDetail(device) {
     ['Verbindung', iface],
     ['Hersteller', esc(device.vendor || '—')],
   ];
+  if (device.webUrl) {
+    rows.push(['Web-Interface', `<a class="weblink" href="${esc(device.webUrl)}" target="_blank" rel="noopener noreferrer">${esc(device.webUrl)} ↗</a>`]);
+  }
   if (device.vpnOf)   rows.push(['VPN von', esc(device.vpnOf)]);
   if (device.aliasOf) rows.push(['Alias von', esc(device.aliasOf)]);
   if (device.ports?.length) {

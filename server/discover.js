@@ -204,4 +204,41 @@ function grabSshBanner(ip) {
   });
 }
 
-module.exports = { getSsdpNames, grabHttpTitle, scanPorts, grabSshBanner };
+// ── Web-Interface-Erkennung ───────────────────────────────────────────────────
+// HEAD-Request: prüft ob HTTP/HTTPS auf einem Port antwortet
+
+function httpResponds(ip, port, secure, timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    const mod = secure ? https : http;
+    const req = mod.request({
+      hostname: ip, port,
+      path: '/', method: 'HEAD', timeout: timeoutMs,
+      rejectUnauthorized: false,
+    }, (res) => { res.resume(); resolve(true); });
+    req.on('error',   () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.end();
+  });
+}
+
+async function probeWebUrl(ip) {
+  const candidates = [
+    { port: 80,   secure: false },
+    { port: 8080, secure: false },
+    { port: 443,  secure: true  },
+    { port: 8443, secure: true  },
+    { port: 5000, secure: false },
+    { port: 8888, secure: false },
+    { port: 9090, secure: false },
+  ];
+  const results = await Promise.all(candidates.map(async ({ port, secure }) => {
+    const ok = await httpResponds(ip, port, secure);
+    if (!ok) return null;
+    const base = `${secure ? 'https' : 'http'}://${ip}`;
+    const dflt = secure ? 443 : 80;
+    return port === dflt ? base : `${base}:${port}`;
+  }));
+  return results.find(r => r !== null) ?? null;
+}
+
+module.exports = { getSsdpNames, grabHttpTitle, scanPorts, grabSshBanner, probeWebUrl };

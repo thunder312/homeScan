@@ -3,7 +3,7 @@ const os = require('os');
 const dns = require('dns').promises;
 const { lookupVendor }           = require('./macLookup');
 const { getHostMap, getMeshTopology } = require('./fritzbox');
-const { getSsdpNames, grabHttpTitle, scanPorts, grabSshBanner } = require('./discover');
+const { getSsdpNames, grabHttpTitle, scanPorts, grabSshBanner, probeWebUrl } = require('./discover');
 
 // ── OUI-Präfixe reiner WLAN-Chip-Hersteller ──────────────────────────────────
 const WIFI_ONLY_OUI = new Set([
@@ -175,7 +175,7 @@ function resolveIface(mac, ip, hostMap, rttMap) {
 
 // ── Haupt-Scan ────────────────────────────────────────────────────────────────
 
-async function scanNetwork({ onProgress, onDevice, onVendor, onSources, onNameUpdate, onPortScan, onAlias }) {
+async function scanNetwork({ onProgress, onDevice, onVendor, onSources, onNameUpdate, onPortScan, onAlias, onWebUrl }) {
   const localIp = getLocalIp();
   if (!localIp) throw new Error('Kein Netzwerk-Interface gefunden');
 
@@ -267,20 +267,28 @@ async function scanNetwork({ onProgress, onDevice, onVendor, onSources, onNameUp
     })
   );
 
-  // Phase 3b: HTTP-Titel + Port-Scan für namenlose Geräte (parallel)
-  await Promise.all(nameless.map(async (d) => {
-    const [title, ports] = await Promise.all([
-      grabHttpTitle(d.ip),
-      scanPorts(d.ip),
-    ]);
-    if (title) onNameUpdate({ ip: d.ip, customName: title, customNameSrc: 'http' });
-    if (ports.length) onPortScan({ ip: d.ip, ports });
-  }));
+  // Phasen 3b + 3c + 3d: unabhängig voneinander → parallel ausführen
+  const [bannerResults] = await Promise.all([
+    // 3c: SSH-Banner für Alias-Erkennung (Rückgabe wird weiter unten gebraucht)
+    Promise.all(
+      rawDevices.map(async (d) => ({ ip: d.ip, mac: d.mac, banner: await grabSshBanner(d.ip) }))
+    ),
 
-  // Phase 3c: SSH-Banner aller Geräte parallel → gleicher Banner = selber Rechner
-  const bannerResults = await Promise.all(
-    rawDevices.map(async (d) => ({ ip: d.ip, mac: d.mac, banner: await grabSshBanner(d.ip) }))
-  );
+    // 3b: HTTP-Titel + Port-Scan für namenlose Geräte
+    Promise.all(nameless.map(async (d) => {
+      const [title, ports] = await Promise.all([grabHttpTitle(d.ip), scanPorts(d.ip)]);
+      if (title) onNameUpdate({ ip: d.ip, customName: title, customNameSrc: 'http' });
+      if (ports.length) onPortScan({ ip: d.ip, ports });
+    })),
+
+    // 3d: Web-Interface-Erkennung für alle Nicht-VPN-Geräte
+    Promise.all(
+      rawDevices.filter(d => !vpnOf[d.ip]).map(async (d) => {
+        const webUrl = await probeWebUrl(d.ip);
+        if (webUrl) onWebUrl({ ip: d.ip, webUrl });
+      })
+    ),
+  ]);
   const byBanner = {};
   for (const { ip, banner } of bannerResults) {
     if (!banner) continue;
