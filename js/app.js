@@ -377,9 +377,12 @@ function startScan() {
     }
   });
 
+  let scanDone = false;
+
   es.addEventListener('done', (e) => {
     const { scannedAt } = JSON.parse(e.data);
     showScanAge(scannedAt);
+    scanDone = true;
     finish(false);
   });
 
@@ -390,8 +393,8 @@ function startScan() {
   });
 
   es.onerror = () => {
-    if (es.readyState === EventSource.CLOSED) {
-      finish(true, 'Verbindung zum Backend unterbrochen. Läuft "npm run dev"?');
+    if (!scanDone && es.readyState === EventSource.CLOSED) {
+      finish(true, 'Verbindung zum Backend unterbrochen.');
     }
   };
 
