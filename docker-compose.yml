@@ -1,0 +1,20 @@
+services:
+  homescan:
+    build: .
+    image: homescan:latest
+    container_name: homescan
+    # host-Netzwerk: Container sieht die ARP-Tabelle des Hosts und
+    # kann mDNS-Multicast ins lokale Netz senden → homescan.local funktioniert
+    network_mode: host
+    # Stabiler Hostname wichtig: Credentials-Verschlüsselung nutzt os.hostname()
+    hostname: homescan
+    restart: unless-stopped
+    cap_add:
+      - NET_RAW    # ICMP Ping
+      - NET_ADMIN  # ARP / Routing
+    environment:
+      PORT: 80
+      DATA_DIR: /app/data
+    volumes:
+      # Cache (Scan-Ergebnisse) und Credentials (FritzBox-Passwort) persistent speichern
+      - ./data:/app/data

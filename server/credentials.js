@@ -3,7 +3,8 @@ const os     = require('os');
 const fs     = require('fs');
 const path   = require('path');
 
-const CRED_FILE = path.join(__dirname, '.credentials');
+const DATA_DIR  = process.env.DATA_DIR || __dirname;
+const CRED_FILE = path.join(DATA_DIR, '.credentials');
 
 // Schlüssel wird aus maschinenspezifischen Daten abgeleitet — nie gespeichert
 function deriveKey() {

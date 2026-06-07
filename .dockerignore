@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.claude
+.idea
+data
+server/.credentials
+server/cache.json
+server/config.json
+*.log
+*.tmp.*

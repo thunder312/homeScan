@@ -1,7 +1,8 @@
 const fs   = require('fs');
 const path = require('path');
 
-const CACHE_FILE = path.join(__dirname, 'cache.json');
+const DATA_DIR   = process.env.DATA_DIR || __dirname;
+const CACHE_FILE = path.join(DATA_DIR, 'cache.json');
 
 function loadCache() {
   try {

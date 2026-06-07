@@ -51,11 +51,16 @@ function getLocalDevice(localIp) {
   return null;
 }
 
+const IS_LINUX = process.platform === 'linux';
+
 function detectGateway(localIp) {
   return new Promise((resolve) => {
-    exec('route print 0.0.0.0', (err, stdout) => {
+    const cmd = IS_LINUX ? 'ip route show default' : 'route print 0.0.0.0';
+    exec(cmd, (err, stdout) => {
       if (!err) {
-        const m = stdout.match(/0\.0\.0\.0\s+0\.0\.0\.0\s+(\d+\.\d+\.\d+\.\d+)/);
+        const m = IS_LINUX
+          ? stdout.match(/default via (\d+\.\d+\.\d+\.\d+)/)
+          : stdout.match(/0\.0\.0\.0\s+0\.0\.0\.0\s+(\d+\.\d+\.\d+\.\d+)/);
         if (m) return resolve(m[1]);
       }
       resolve(localIp.split('.').slice(0, 3).join('.') + '.1');
@@ -65,10 +70,11 @@ function detectGateway(localIp) {
 
 function pingHost(ip) {
   return new Promise((resolve) => {
-    exec(`ping -n 1 -w 800 ${ip}`, (err, stdout) => {
+    const cmd = IS_LINUX ? `ping -c 1 -W 1 ${ip}` : `ping -n 1 -w 800 ${ip}`;
+    exec(cmd, (err, stdout) => {
       if (err || !/TTL=/i.test(stdout)) { resolve({ alive: false, rtt: null }); return; }
-      const m = stdout.match(/(?:[Zz]eit|time)([=<])(\d*)\s*ms/);
-      const rtt = m ? (m[1] === '<' ? 0 : parseInt(m[2], 10)) : 0;
+      const m = stdout.match(/(?:[Zz]eit|time)([=<])(\d+\.?\d*)\s*ms/i);
+      const rtt = m ? (m[1] === '<' ? 0 : parseFloat(m[2])) : 0;
       resolve({ alive: true, rtt });
     });
   });
@@ -94,23 +100,31 @@ async function pingSweep(localIp, onProgress) {
 
 function readArpTable() {
   return new Promise((resolve, reject) => {
-    exec('arp -a', (err, stdout) => {
+    // Linux: ip neigh show  →  "192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE"
+    // Windows: arp -a       →  "192.168.1.1   aa-bb-cc-dd-ee-ff   dynamic"
+    const cmd = IS_LINUX ? 'ip neigh show' : 'arp -a';
+    exec(cmd, (err, stdout) => {
       if (err) return reject(err);
       const devices = [];
       for (const line of stdout.split('\n')) {
-        const m = line.match(
-          /(\d+\.\d+\.\d+\.\d+)\s+([0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2})\s+(dynami[sc][ch]|stati[sc][ch])/i
-        );
-        if (m) {
-          const ip  = m[1];
-          const mac = m[2].replace(/-/g, ':').toLowerCase();
-          if (
-            mac === 'ff:ff:ff:ff:ff:ff' || mac.startsWith('01:00:5e') ||
-            ip.startsWith('224.') || ip.startsWith('239.') ||
-            ip.startsWith('255.') || ip.startsWith('169.254.')
-          ) continue;
-          devices.push({ ip, mac });
+        let ip, mac;
+        if (IS_LINUX) {
+          const m = line.match(/^(\d+\.\d+\.\d+\.\d+)\s+dev\s+\S+\s+lladdr\s+([0-9a-f:]{17})\s/i);
+          if (!m) continue;
+          ip = m[1]; mac = m[2].toLowerCase();
+        } else {
+          const m = line.match(
+            /(\d+\.\d+\.\d+\.\d+)\s+([0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2})\s+(dynami[sc][ch]|stati[sc][ch])/i
+          );
+          if (!m) continue;
+          ip = m[1]; mac = m[2].replace(/-/g, ':').toLowerCase();
         }
+        if (
+          mac === 'ff:ff:ff:ff:ff:ff' || mac.startsWith('01:00:5e') ||
+          ip.startsWith('224.') || ip.startsWith('239.') ||
+          ip.startsWith('255.') || ip.startsWith('169.254.')
+        ) continue;
+        devices.push({ ip, mac });
       }
       devices.sort((a, b) => {
         const ao = a.ip.split('.').map(Number);
@@ -129,12 +143,12 @@ async function resolveHostname(ip) {
   catch { return null; }
 }
 
-// NetBIOS-Name via nbtstat (Windows-Geräte, router-unabhängig)
+// NetBIOS-Name via nbtstat (nur Windows)
 function getNbName(ip) {
+  if (IS_LINUX) return Promise.resolve(null);
   return new Promise((resolve) => {
     exec(`nbtstat -A ${ip}`, { timeout: 2000 }, (err, stdout) => {
       if (err || !stdout) return resolve(null);
-      // Deutsch: EINDEUTIG  |  Englisch: UNIQUE
       const m = stdout.match(/^\s+(\S+)\s+<00>\s+(?:EINDEUTIG|UNIQUE)/im);
       resolve(m ? m[1].trim() : null);
     });

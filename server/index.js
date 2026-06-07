@@ -1,14 +1,21 @@
 const express  = require('express');
 const cors     = require('cors');
-const { scanNetwork } = require('./scanner');
+const path     = require('path');
+const { scanNetwork, getLocalIp } = require('./scanner');
 const { loadCache, saveCache } = require('./cache');
 const { loadCredentials, saveCredentials, clearCredentials, hasCredentials } = require('./credentials');
 const { getFriendlyNames } = require('./fritzbox');
-const { detectGateway, getLocalIp } = require('./scanner');
+const { detectGateway } = require('./scanner');
 
 const app  = express();
-const PORT = 3001;
+const PORT = parseInt(process.env.PORT) || 3001;
 let isScanning = false;
+
+// ── Statische Frontend-Dateien (Prod: dist/, Dev: nicht aktiv) ────────────────
+const distDir = path.join(__dirname, '../dist');
+if (require('fs').existsSync(distDir)) {
+  app.use(express.static(distDir));
+}
 
 app.use(cors());
 app.use(express.json());
@@ -124,5 +131,29 @@ app.get('/api/scan', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`homeScan Backend läuft auf http://localhost:${PORT}`);
+  console.log(`homeScan läuft auf http://localhost:${PORT}`);
+  startMdns(PORT);
 });
+
+// ── mDNS: homescan.local ───────────────────────────────────────────────────────
+function startMdns(port) {
+  let mdns;
+  try { mdns = require('multicast-dns')(); } catch { return; }
+
+  const hostname = 'homescan.local';
+  const ip       = getLocalIp();
+  if (!ip) return;
+
+  mdns.on('query', (query) => {
+    for (const q of query.questions) {
+      if (q.name.toLowerCase() === hostname && (q.type === 'A' || q.type === 'ANY')) {
+        mdns.respond({
+          answers: [{ name: hostname, type: 'A', ttl: 300, data: ip }],
+        });
+      }
+    }
+  });
+
+  const url = `http://${hostname}${port !== 80 ? ':' + port : ''}`;
+  console.log(`mDNS aktiv: ${url}`);
+}
