@@ -360,7 +360,7 @@ hr { border: 0; border-top: 1px solid var(--ew-border); margin: var(--ew-space-5
 /* --------------------------------------------------------------------------
    10. Dialog / Modal
    -------------------------------------------------------------------------- */
-.ew-dialog { border: 1px solid var(--ew-border-strong); border-radius: var(--ew-radius-lg); background: var(--ew-surface); color: var(--ew-text); padding: var(--ew-space-5); max-width: min(560px, 92vw); box-shadow: var(--ew-shadow); }
+.ew-dialog { margin: auto; border: 1px solid var(--ew-border-strong); border-radius: var(--ew-radius-lg); background: var(--ew-surface); color: var(--ew-text); padding: var(--ew-space-5); max-width: min(560px, 92vw); box-shadow: var(--ew-shadow); }
 .ew-dialog::backdrop { background: rgba(0,0,0,.6); backdrop-filter: blur(2px); }
 .ew-dialog__actions { display: flex; justify-content: flex-end; gap: var(--ew-space-2); margin-top: var(--ew-space-5); }
 
